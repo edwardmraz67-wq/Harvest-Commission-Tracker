@@ -1,0 +1,149 @@
+// This is your Prisma schema file
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                String              @id @default(cuid())
+  email             String              @unique
+  password          String?
+  name              String?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  
+  harvestConnection HarvestConnection?
+  commissionRules   CommissionRule[]
+  projectAssignments ProjectRuleAssignment[]
+  payoutPeriods     PayoutPeriod[]
+  payoutAdjustments PayoutAdjustment[]
+}
+
+model HarvestConnection {
+  id                    String    @id @default(cuid())
+  userId                String    @unique
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accountId             String
+  accessTokenEncrypted  String
+  createdAt             DateTime  @default(now())
+  lastSyncAt            DateTime?
+  
+  @@index([userId])
+}
+
+model Client {
+  id          String    @id @default(cuid())
+  harvestId   String    @unique
+  name        String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  projects    Project[]
+  invoices    Invoice[]
+  
+  @@index([harvestId])
+}
+
+model Project {
+  id              String    @id @default(cuid())
+  harvestId       String    @unique
+  clientHarvestId String
+  client          Client    @relation(fields: [clientHarvestId], references: [harvestId], onDelete: Cascade)
+  name            String
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  ruleAssignments ProjectRuleAssignment[]
+  
+  @@index([harvestId])
+  @@index([clientHarvestId])
+}
+
+model Invoice {
+  id              String    @id @default(cuid())
+  harvestId       String    @unique
+  clientHarvestId String
+  client          Client    @relation(fields: [clientHarvestId], references: [harvestId], onDelete: Cascade)
+  number          String
+  issueDate       DateTime
+  dueDate         DateTime?
+  status          String    // "draft", "open", "paid", "closed"
+  amount          Float
+  amountPaid      Float     @default(0)
+  paidAt          DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  @@index([harvestId])
+  @@index([clientHarvestId])
+  @@index([status])
+  @@index([paidAt])
+}
+
+model CommissionRule {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  percent     Float     // Store as decimal (e.g., 10.5 for 10.5%)
+  isDefault   Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  projectAssignments ProjectRuleAssignment[]
+  
+  @@index([userId])
+  @@index([userId, isDefault])
+}
+
+model ProjectRuleAssignment {
+  id                String          @id @default(cuid())
+  userId            String
+  user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  projectHarvestId  String
+  project           Project         @relation(fields: [projectHarvestId], references: [harvestId], onDelete: Cascade)
+  commissionRuleId  String
+  commissionRule    CommissionRule  @relation(fields: [commissionRuleId], references: [id], onDelete: Cascade)
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  
+  @@unique([userId, projectHarvestId])
+  @@index([userId])
+  @@index([projectHarvestId])
+}
+
+model PayoutPeriod {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  startDate   DateTime
+  endDate     DateTime
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  adjustments PayoutAdjustment[]
+  
+  @@index([userId])
+  @@index([userId, startDate, endDate])
+}
+
+model PayoutAdjustment {
+  id              String        @id @default(cuid())
+  userId          String
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  payoutPeriodId  String
+  payoutPeriod    PayoutPeriod  @relation(fields: [payoutPeriodId], references: [id], onDelete: Cascade)
+  amount          Float
+  note            String?
+  createdAt       DateTime      @default(now())
+  
+  @@index([userId])
+  @@index([payoutPeriodId])
+}
