@@ -39,15 +39,15 @@ export async function GET(req: NextRequest) {
       include: { commissionRule: true, project: true },
     })
 
-    // Get all invoices
-    let invoices = await prisma.invoice.findMany({
+    // Get all invoices with client data
+    let invoicesData = await prisma.invoice.findMany({
       include: { client: true },
     })
 
     // Filter by date range if provided
     if (startDate && endDate) {
-      invoices = filterInvoicesByDateRange(
-        invoices,
+      invoicesData = filterInvoicesByDateRange(
+        invoicesData,
         new Date(startDate),
         new Date(endDate)
       )
@@ -60,7 +60,7 @@ export async function GET(req: NextRequest) {
     )
 
     // Calculate commissions for each invoice
-    const invoicesWithCommission: InvoiceWithCommission[] = invoices.map(invoice => {
+    const invoicesWithCommission: InvoiceWithCommission[] = invoicesData.map(invoice => {
       const project = clientProjects.get(invoice.clientHarvestId)
       const assignment = assignments.find(
         a => a.projectHarvestId === project?.harvestId
